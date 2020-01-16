@@ -34,7 +34,7 @@ parser.add_argument('--num-options', type=int, default=4, help=('Number of optio
 parser.add_argument('--temp', type=float, default=1, help='Action distribution softmax tempurature param.')
 
 parser.add_argument('--max_steps_ep', type=int, default=18000, help='number of maximum steps per episode.')
-parser.add_argument('--max_steps_total', type=int, default=int(4e6), help='number of maximum steps to take.') # bout 4 million
+parser.add_argument('--max_steps_total', type=int, default=int(40000), help='number of maximum steps to take.') # bout 4 million
 parser.add_argument('--cuda', type=bool, default=True, help='Enable CUDA training (recommended if possible).')
 parser.add_argument('--seed', type=int, default=0, help='Random seed for numpy, torch, random.')
 parser.add_argument('--logdir', type=str, default='runs', help='Directory for logging statistics')
@@ -146,5 +146,7 @@ def run(args):
         logger.log_episode(steps, rewards, option_lengths, ep_steps, epsilon)
 
 if __name__=="__main__":
-    args = parser.parse_args()
-    run(args)
+    runs = 9
+    for i in range(runs):  
+        args = parser.parse_args()
+        run(args)
