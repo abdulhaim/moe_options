@@ -18,7 +18,13 @@ class OptionCriticFeatures(nn.Module):
                 eps_decay=int(1e6),
                 eps_test=0.05,
                 device='cpu',
-                testing=False):
+                testing=False, 
+                input_size,
+                num_classes,
+                num_experts,
+                hidden_size,
+                batch_size,
+                top_k):
 
         super(OptionCriticFeatures, self).__init__()
 
@@ -45,16 +51,8 @@ class OptionCriticFeatures(nn.Module):
         self.Q            = nn.Linear(64, num_options)                 # Policy-Over-Options
         self.terminations = nn.Linear(64, num_options)                 # Option-Termination
 
-        # Weights for Intra Option Policy 
-        # arguments for MoE
-        input_size = 64
-        num_classes = 1
-        num_experts = 4 
-        hidden_size = 64 
-        batch_size = 5
-        k = 4
-
-        self.options_W = nn.ModuleList([MoE(input_size, num_classes, num_experts, hidden_size, k=k, noisy_gating=False) for i in range(self.num_options)])
+        # Each Intra Option Policy is a Mixture of Expoerts (MoE) Model
+        self.options_W = nn.ModuleList([MoE(input_size, num_classes, num_experts, hidden_size, k=top_k, noisy_gating=False) for i in range(self.num_options)])
 
         self.to(device)
         self.train(not testing)

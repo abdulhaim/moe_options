@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description="Option Critic PyTorch")
 parser.add_argument('--env', default='fourrooms', help='ROM to run')
 parser.add_argument('--optimal-eps', type=float, default=0.05, help='Epsilon when playing optimally')
 parser.add_argument('--frame-skip', default=4, type=int, help='Every how many frames to process')
-parser.add_argument('--learning-rate',type=float, default=.0005, help='Learning rate')
+parser.add_argument('--learning-rate',type=float, default=.00005, help='Learning rate')
 parser.add_argument('--rms-decay', type=float, default=.95, help='Decay rate for rms_prop')
 parser.add_argument('--rms-epsilon', type=float, default=.01, help='Denominator epsilson for rms_prop')
 parser.add_argument('--gamma', type=float, default=.99, help='Discount rate')
@@ -25,7 +25,7 @@ parser.add_argument('--epsilon-start',  type=float, default=1.0, help=('Starting
 parser.add_argument('--epsilon-min', type=float, default=.1, help='Minimum epsilon.')
 parser.add_argument('--epsilon-decay', type=float, default=20000, help=('Number of steps to minimum epsilon.'))
 parser.add_argument('--max-history', type=int, default=10000, help=('Maximum number of steps stored in replay'))
-parser.add_argument('--batch-size', type=int, default=32, help='Batch size.')
+parser.add_argument('--batch-size', type=int, default=64, help='Batch size.')
 parser.add_argument('--freeze-interval', type=int, default=200, help=('Interval between target freezes.'))
 parser.add_argument('--update-frequency', type=int, default=4, help=('Number of actions before each SGD update.'))
 parser.add_argument('--termination-reg', type=float, default=0.01, help=('Regularization to decrease termination prob.'))
@@ -34,12 +34,20 @@ parser.add_argument('--num-options', type=int, default=4, help=('Number of optio
 parser.add_argument('--temp', type=float, default=1, help='Action distribution softmax tempurature param.')
 
 parser.add_argument('--max_steps_ep', type=int, default=18000, help='number of maximum steps per episode.')
-parser.add_argument('--max_steps_total', type=int, default=int(40000), help='number of maximum steps to take.') # bout 4 million
+parser.add_argument('--max_steps_total', type=int, default=int(500000), help='number of maximum steps to take.') # bout 4 million
 parser.add_argument('--cuda', type=bool, default=True, help='Enable CUDA training (recommended if possible).')
 parser.add_argument('--seed', type=int, default=0, help='Random seed for numpy, torch, random.')
 parser.add_argument('--logdir', type=str, default='runs', help='Directory for logging statistics')
 parser.add_argument('--exp', type=str, default=None, help='optional experiment name')
 parser.add_argument('--switch-goal', type=bool, default=False, help='switch goal after 2k eps')
+
+parser.add_argument('--input_size', type=int, default=64, help='for moe model')
+parser.add_argument('--num_classes', type=int, default=1, help='for moe model')
+parser.add_argument('--num_experts', type=int, default=5, help='for moe model')
+parser.add_argument('--hidden_size', type=int, default=False, help='for moe model')
+parser.add_argument('--batch_size', type=int, default=5, help='for moe model')
+parser.add_argument('--top_k', type=int, default=4, help='top_k constant from model model')
+
 
 def run(args):
     env = make_env(args.env)
@@ -55,7 +63,13 @@ def run(args):
         eps_min=args.epsilon_min,
         eps_decay=args.epsilon_decay,
         eps_test=args.optimal_eps,
-        device=device
+        device=device,
+        input_size = args.input_size,
+        num_classes = args.num_classes,
+        num_experts = args.num_experts, 
+        hidden_size = args.hidden_size, 
+        batch_size = args.batch_size,
+        top_k = args.top_k
     )
     # Create a prime network for more stable Q values
     option_critic_prime = deepcopy(option_critic)
@@ -79,23 +93,6 @@ def run(args):
         state = option_critic.get_state(to_tensor(obs))
         greedy_option  = option_critic.greedy_option(state)
         current_option = 0
-
-        # # Goal switching experiment: run for 1k episodes in fourrooms, switch goals and run for another
-        # # 2k episodes. In option-critic, if the options have some meaning, only the policy-over-options
-        # # should be finedtuned (this is what we would hope).
-
-        # if args.switch_goal and logger.n_eps == 1000:
-        #     torch.save({'model_params': option_critic.state_dict(),
-        #                 'goal_state': env.goal},
-        #                 'models/option_critic_{args.seed}_1k')
-        #     env.switch_goal()
-        #     print(f"New goal {env.goal}")
-
-        # if args.switch_goal and logger.n_eps > 2000:
-        #     torch.save({'model_params': option_critic.state_dict(),
-        #                 'goal_state': env.goal},
-        #                 'models/option_critic_{args.seed}_2k')
-        #     break
 
         done = False ; ep_steps = 0 ; option_termination = True ; curr_op_len = 0
         while not done and ep_steps < args.max_steps_ep:
@@ -146,7 +143,5 @@ def run(args):
         logger.log_episode(steps, rewards, option_lengths, ep_steps, epsilon)
 
 if __name__=="__main__":
-    runs = 9
-    for i in range(runs):  
-        args = parser.parse_args()
-        run(args)
+    args = parser.parse_args()
+    run(args)
